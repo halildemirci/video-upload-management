@@ -1,6 +1,6 @@
 FROM php:8.2-fpm
 
-# Sistem paketlerini yükle
+# Sistem bağımlılıkları
 RUN apt-get update && apt-get install -y \
     libpng-dev \
     libonig-dev \
@@ -10,29 +10,33 @@ RUN apt-get update && apt-get install -y \
     curl \
     git \
     ffmpeg \
+    nodejs \
+    npm \
     && docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath
 
-# Composer kur
+# Composer kurulumu
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
-# Laravel çalışma klasörü
+# Proje dizini
 WORKDIR /var/www
 
-# Upload limitlerini artır
+# PHP upload limiti (örneğin 200MB)
 RUN echo "upload_max_filesize=200M\npost_max_size=200M" > /usr/local/etc/php/conf.d/uploads.ini
 
-# Dosyaları kopyala
+# Uygulama dosyaları
 COPY . .
 
-# Laravel bağımlılıklarını yükle
+# SQLite dosyası (isteğe bağlı)
+RUN mkdir -p database && touch database/database.sqlite
+
+# Laravel kurulumları
 RUN composer install --no-dev --optimize-autoloader
 RUN php artisan config:clear && php artisan route:clear && php artisan view:clear
+RUN php artisan storage:link || true
+RUN php artisan migrate --force || true
 
-# Storage link
-RUN php artisan storage:link
-
-# Port ayarı
+# 8080 portunu aç
 EXPOSE 8080
 
-# Başlatma komutu
-CMD php -d variables_order=EGPCS -S 0.0.0.0:${PORT:-8080} -t public
+# Laravel'i başlat (php -S ile, artisan serve kullanmıyoruz)
+CMD php -d variables_order=EGPCS -S 0.0.0.0:8080 -t public
