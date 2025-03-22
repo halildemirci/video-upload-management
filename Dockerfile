@@ -20,23 +20,28 @@ COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 # Proje dizini
 WORKDIR /var/www
 
-# PHP upload limiti (örneğin 200MB)
+# PHP upload limiti
 RUN echo "upload_max_filesize=200M\npost_max_size=200M" > /usr/local/etc/php/conf.d/uploads.ini
 
-# Uygulama dosyaları
+# Uygulama dosyalarını kopyala
 COPY . .
 
-# SQLite dosyası (isteğe bağlı)
+# SQLite dosyası (eğer kullanıyorsan)
 RUN mkdir -p database && touch database/database.sqlite
 
-# Laravel kurulumları
+# Composer ve Laravel işlemleri
 RUN composer install --no-dev --optimize-autoloader
+
+# ✅ Vite build adımı
+RUN npm install && npm run build
+
+# Laravel ayarları
 RUN php artisan config:clear && php artisan route:clear && php artisan view:clear
 RUN php artisan storage:link || true
 RUN php artisan migrate --force || true
 
-# 8080 portunu aç
+# Port aç
 EXPOSE 8080
 
-# Laravel'i başlat (php -S ile, artisan serve kullanmıyoruz)
+# Uygulama başlat
 CMD php -d variables_order=EGPCS -S 0.0.0.0:8080 -t public
